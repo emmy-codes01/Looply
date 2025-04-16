@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +11,7 @@ import BottomNav from "@/components/BottomNav";
 import { Profile, Post as PostType } from "@/types/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -46,7 +46,6 @@ const Search = () => {
     
     if (error) throw error;
     
-    // Get likes count for each post
     const postsWithCounts = await Promise.all(
       data.map(async (post) => {
         const { count: likesCount } = await supabase
@@ -105,7 +104,6 @@ const Search = () => {
     
     if (error) throw error;
     
-    // Get follower info for each user
     const usersWithFollowInfo = await Promise.all(
       data.map(async (profile) => {
         const { count: followerCount } = await supabase
@@ -261,7 +259,7 @@ const Search = () => {
                 </p>
               </div>
               
-              {postsData.posts.map((post: PostType) => (
+              {postsData.posts.map((post) => (
                 <Post key={post.id} {...post} />
               ))}
             </div>

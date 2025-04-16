@@ -1,8 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Calendar, Link as LinkIcon, MapPin, Pencil, ArrowLeft, Loader, LogOut } from "lucide-react";
+import { 
+  MessageCircle, Calendar, Link as LinkIcon, MapPin, Pencil, 
+  ArrowLeft, Loader, LogOut, UserRound, Heart, FileText, Image 
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,7 +48,6 @@ const Profile = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
-  // Set up the profile ID to view (either the URL param or current user)
   const targetProfileId = profileId || user?.id;
   
   const form = useForm<z.infer<typeof profileFormSchema>>({
@@ -60,7 +61,6 @@ const Profile = () => {
     },
   });
   
-  // Fetch profile data
   const fetchProfile = async () => {
     if (!targetProfileId) return null;
     
@@ -75,7 +75,6 @@ const Profile = () => {
     return data as ProfileType;
   };
   
-  // Fetch posts for this profile
   const fetchProfilePosts = async () => {
     if (!targetProfileId) return [];
     
@@ -91,7 +90,6 @@ const Profile = () => {
     
     if (error) throw error;
     
-    // Get likes and comments count for each post
     const postsWithCounts = await Promise.all(
       data.map(async (post) => {
         const { count: likesCount } = await supabase
@@ -139,7 +137,6 @@ const Profile = () => {
     return postsWithCounts;
   };
   
-  // Fetch profile info and posts
   const { 
     data: profileData, 
     isLoading: isProfileLoading,
@@ -148,7 +145,7 @@ const Profile = () => {
     queryKey: ['profile', targetProfileId],
     queryFn: fetchProfile,
     enabled: !!targetProfileId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
   
   const { 
@@ -159,10 +156,9 @@ const Profile = () => {
     queryKey: ['profile-posts', targetProfileId],
     queryFn: fetchProfilePosts,
     enabled: !!targetProfileId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
   
-  // Check follow status and count when profile data changes
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (!user || !targetProfileId || user.id === targetProfileId) return;
@@ -184,7 +180,6 @@ const Profile = () => {
     const getFollowCounts = async () => {
       if (!targetProfileId) return;
       
-      // Get follower count
       const { count: followers, error: followerError } = await supabase
         .from('follows')
         .select('*', { count: 'exact', head: true })
@@ -196,7 +191,6 @@ const Profile = () => {
         setFollowerCount(followers || 0);
       }
       
-      // Get following count
       const { count: following, error: followingError } = await supabase
         .from('follows')
         .select('*', { count: 'exact', head: true })
@@ -213,31 +207,27 @@ const Profile = () => {
     getFollowCounts();
   }, [targetProfileId, user]);
   
-  // Initialize form when profile data is loaded
   useEffect(() => {
     if (profileData && user && targetProfileId === user.id) {
       form.reset({
         displayName: profileData.display_name || "",
         username: profileData.username || "",
         bio: profileData.bio || "",
-        location: "", // Add these fields to your profile table if needed
+        location: "",
         website: "",
       });
     }
   }, [profileData, form, user, targetProfileId]);
   
-  // Handle file input change for avatar
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         toast.error("Image is too large. Maximum size is 5MB.");
         return;
       }
       
-      // Validate file type
       if (!file.type.match(/image\/(jpeg|png|gif|webp)/)) {
         toast.error("Invalid file type. Please use JPEG, PNG, GIF, or WebP.");
         return;
@@ -248,25 +238,21 @@ const Profile = () => {
     }
   };
   
-  // Upload avatar to Supabase Storage
   const uploadAvatar = async () => {
     if (!user || !avatarFile) return null;
     
     try {
       setIsUploading(true);
       
-      // Create a unique file path
       const fileExt = avatarFile.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
       
-      // Upload the file
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile);
       
       if (uploadError) throw uploadError;
       
-      // Get the public URL
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
@@ -281,19 +267,16 @@ const Profile = () => {
     }
   };
   
-  // Submit profile updates
   const onSubmit = async (data: z.infer<typeof profileFormSchema>) => {
     if (!user) return;
     
     try {
-      // Upload avatar if selected
       let avatarUrl = null;
       if (avatarFile) {
         avatarUrl = await uploadAvatar();
-        if (!avatarUrl) return; // Stop if avatar upload failed
+        if (!avatarUrl) return;
       }
       
-      // Update profile
       await updateProfile({
         display_name: data.displayName,
         username: data.username,
@@ -301,12 +284,10 @@ const Profile = () => {
         ...(avatarUrl && { avatar_url: avatarUrl }),
       });
       
-      // Close form and reset state
       setIsEditProfileOpen(false);
       setAvatarFile(null);
       setAvatarPreview(null);
       
-      // Refresh profile data
       refetchProfile();
       
       toast.success("Profile updated successfully");
@@ -325,13 +306,11 @@ const Profile = () => {
     }
   };
   
-  // Handle follow/unfollow
   const handleFollowToggle = async () => {
     if (!user || !targetProfileId || user.id === targetProfileId) return;
     
     try {
       if (isFollowing) {
-        // Unfollow
         await supabase
           .from('follows')
           .delete()
@@ -341,7 +320,6 @@ const Profile = () => {
         setIsFollowing(false);
         setFollowerCount(prev => Math.max(0, prev - 1));
       } else {
-        // Follow
         await supabase
           .from('follows')
           .insert({
@@ -358,7 +336,6 @@ const Profile = () => {
     }
   };
   
-  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -368,12 +345,10 @@ const Profile = () => {
     }
   };
   
-  // Start a conversation with this user
   const startConversation = async () => {
     if (!user || !targetProfileId || user.id === targetProfileId) return;
     
     try {
-      // Check if conversation already exists
       const { data: existingConv } = await supabase
         .from('conversations')
         .select('*')
@@ -388,7 +363,6 @@ const Profile = () => {
         return;
       }
       
-      // Create new conversation
       const { data, error } = await supabase
         .from('conversations')
         .insert({
@@ -407,7 +381,6 @@ const Profile = () => {
     }
   };
   
-  // Loading states
   if (isProfileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -416,7 +389,6 @@ const Profile = () => {
     );
   }
   
-  // Handle not found
   if (!profileData) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
@@ -446,12 +418,8 @@ const Profile = () => {
       />
       
       <main className="max-w-2xl mx-auto pt-16 pb-24 bg-white min-h-screen">
-        {/* Profile Header */}
         <div className="relative">
-          {/* Cover Photo (Placeholder) */}
           <div className="h-32 bg-gradient-to-r from-primary/20 to-primary/40" />
-          
-          {/* Profile Picture */}
           <div className="absolute left-4 -bottom-16">
             <Avatar className="h-32 w-32 border-4 border-white">
               <AvatarImage src={profileData.avatar_url || ''} />
@@ -461,8 +429,6 @@ const Profile = () => {
               </AvatarFallback>
             </Avatar>
           </div>
-          
-          {/* Profile Actions */}
           <div className="flex justify-end p-4">
             {user && targetProfileId === user.id ? (
               <Button 
@@ -496,7 +462,6 @@ const Profile = () => {
           </div>
         </div>
         
-        {/* Profile Info */}
         <div className="mt-16 px-4">
           <h1 className="text-xl font-bold">{profileData.display_name}</h1>
           <p className="text-gray-500">@{profileData.username}</p>
@@ -526,7 +491,6 @@ const Profile = () => {
           </div>
         </div>
         
-        {/* Profile Tabs */}
         <div className="mt-4">
           <Tabs defaultValue="posts">
             <TabsList className="w-full rounded-none border-b bg-transparent justify-start px-4">
@@ -570,11 +534,10 @@ const Profile = () => {
                 </div>
               ) : (
                 <div>
-                  {postsData?.map((post: PostType) => (
+                  {postsData?.map((post) => (
                     <Post 
                       key={post.id} 
-                      {...post} 
-                      onPostUpdate={() => refetchPosts()}
+                      {...post}
                     />
                   ))}
                 </div>
@@ -614,7 +577,6 @@ const Profile = () => {
         onAuthClick={() => {}}
       />
       
-      {/* Edit Profile Form */}
       <Sheet open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
         <SheetContent className="sm:max-w-md">
           <SheetHeader>
@@ -627,7 +589,6 @@ const Profile = () => {
           <div className="py-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Avatar Upload */}
                 <div className="flex flex-col items-center mb-4">
                   <Avatar className="h-24 w-24 mb-2">
                     <AvatarImage 
