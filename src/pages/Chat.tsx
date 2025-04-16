@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,40 +12,17 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Message, Profile, Conversation } from "@/types/supabase";
 
-// Define interfaces to fix type recursion issue
-interface MessageType {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
+// Define properly typed interfaces to fix recursion
+interface MessageWithSender extends Omit<Message, 'sender'> {
+  sender?: Profile;
   conversation_id?: string;
-  content: string;
-  is_read: boolean;
-  created_at: string;
-  sender?: {
-    id: string;
-    username: string;
-    display_name: string | null;
-    avatar_url: string | null;
-  };
 }
 
-interface ProfileType {
-  id: string;
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio?: string | null;
-}
-
-interface ConversationType {
-  id: string;
-  user1_id: string;
-  user2_id: string;
-  last_message_at: string;
-  created_at: string;
-  user1?: ProfileType;
-  user2?: ProfileType;
+interface ConversationWithUsers extends Omit<Conversation, 'user1' | 'user2'> {
+  user1?: Profile;
+  user2?: Profile;
 }
 
 const Chat = () => {
@@ -69,9 +47,12 @@ const Chat = () => {
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false });
     
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching conversations:", error);
+      throw error;
+    }
     
-    return data as ConversationType[];
+    return data as ConversationWithUsers[];
   };
   
   const fetchMessages = async () => {
@@ -86,7 +67,10 @@ const Chat = () => {
       .eq('conversation_id', conversationId)
       .order('created_at');
     
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching messages:", error);
+      throw error;
+    }
     
     // Mark messages as read
     const unreadMessages = data.filter(msg => 
@@ -100,7 +84,7 @@ const Chat = () => {
         .in('id', unreadMessages.map(msg => msg.id));
     }
     
-    return data as MessageType[];
+    return data as MessageWithSender[];
   };
   
   const { 
@@ -183,7 +167,37 @@ const Chat = () => {
     if (!user || !conversationId || !messageInput.trim() || !chatPartner) return;
     
     try {
-      const { error } = await supabase
+      // First, check if the conversation exists
+      const { data: existingConv, error: convError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .single();
+      
+      if (convError && convError.code !== 'PGRST116') {
+        console.error("Error checking conversation:", convError);
+        throw convError;
+      }
+      
+      // If conversation doesn't exist, create it
+      if (!existingConv) {
+        const { error: createConvError } = await supabase
+          .from('conversations')
+          .insert({
+            id: conversationId,
+            user1_id: user.id,
+            user2_id: chatPartner.id,
+            last_message_at: new Date().toISOString()
+          });
+        
+        if (createConvError) {
+          console.error("Error creating conversation:", createConvError);
+          throw createConvError;
+        }
+      }
+      
+      // Now insert the message
+      const { error: msgError } = await supabase
         .from('messages')
         .insert({
           sender_id: user.id,
@@ -192,7 +206,10 @@ const Chat = () => {
           content: messageInput.trim()
         });
       
-      if (error) throw error;
+      if (msgError) {
+        console.error("Error sending message:", msgError);
+        throw msgError;
+      }
       
       // Update conversation last_message_at
       await supabase
@@ -207,7 +224,7 @@ const Chat = () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (error) {
       console.error("Error sending message:", error);
-      toast.error("Failed to send message");
+      toast.error("Failed to send message. Please try again.");
     }
   };
   
@@ -215,7 +232,7 @@ const Chat = () => {
     return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
   };
   
-  const getOtherUser = (conversation: ConversationType) => {
+  const getOtherUser = (conversation: ConversationWithUsers) => {
     if (!user) return null;
     
     return conversation.user1_id === user.id 
@@ -253,6 +270,7 @@ const Chat = () => {
     
     if (error) {
       console.error("Error creating conversation:", error);
+      toast.error("Failed to start conversation. Please try again.");
       return;
     }
     
@@ -348,7 +366,7 @@ const Chat = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {conversations?.map((conversation: ConversationType) => {
+              {conversations?.map((conversation: ConversationWithUsers) => {
                 const otherUser = getOtherUser(conversation);
                 if (!otherUser) return null;
                 
