@@ -1,6 +1,6 @@
 # Looply
 
-Looply is a modern and sleek social media web application designed to foster real connections and dynamic interactions. It offers all the core features of a social platform—posting, following, liking, commenting, and sharing—while introducing unique experiences like Loop Threads, Mood-Based Feeds, and more.
+Looply is a modern and sleek social media web application designed to foster real connections and dynamic interactions. It offers all the core features of a social platform—posting, following, liking, commenting, and sharing while introducing unique experiences like Loop Threads, Mood-Based Feeds, and more.
 
 ## 🌟 Features
 
