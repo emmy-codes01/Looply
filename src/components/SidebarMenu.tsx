@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   Home, 
   UserRound, 
@@ -11,10 +12,12 @@ import {
   Heart, 
   MessageCircle, 
   Compass, 
-  Bookmark as BookmarkIcon
+  Bookmark as BookmarkIcon,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SidebarMenuProps {
   isOpen: boolean;
@@ -29,8 +32,26 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
   onClose,
   onAuthClick,
 }) => {
+  const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
+
   // If the menu is not open, don't render anything
   if (!isOpen) return null;
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    onClose();
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      onClose();
+      navigate('/');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   return (
     <>
@@ -52,15 +73,18 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
 
           {/* User Profile or Login Button */}
           <div className="p-5 border-b">
-            {isAuthenticated ? (
+            {isAuthenticated && profile ? (
               <div className="flex items-center space-x-3">
                 <Avatar className="h-12 w-12 border border-gray-200">
-                  <AvatarImage src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100" />
-                  <AvatarFallback className="bg-primary text-white">JD</AvatarFallback>
+                  <AvatarImage src={profile.avatar_url || ''} />
+                  <AvatarFallback className="bg-primary text-white">
+                    {profile.display_name?.substring(0, 2).toUpperCase() || 
+                     profile.username?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-semibold">Jane Doe</h3>
-                  <p className="text-sm text-gray-500">@janedoe</p>
+                  <h3 className="font-semibold">{profile.display_name || profile.username}</h3>
+                  <p className="text-sm text-gray-500">@{profile.username}</p>
                 </div>
               </div>
             ) : (
@@ -81,75 +105,69 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
           <nav className="flex-1 overflow-y-auto p-2">
             <ul className="space-y-1">
               <li>
-                <a
-                  href="#"
-                  className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => handleNavigation('/')}
+                  className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   <Home className="h-5 w-5 mr-3 text-gray-700" />
                   <span>Home</span>
-                </a>
+                </button>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => handleNavigation('/search')}
+                  className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                 >
-                  <Compass className="h-5 w-5 mr-3 text-gray-700" />
-                  <span>Explore</span>
-                </a>
+                  <Search className="h-5 w-5 mr-3 text-gray-700" />
+                  <span>Search</span>
+                </button>
               </li>
               {isAuthenticated && (
                 <>
                   <li>
-                    <a
-                      href="#"
-                      className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                    <button
+                      onClick={() => handleNavigation('/notifications')}
+                      className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <Bell className="h-5 w-5 mr-3 text-gray-700" />
                       <span>Notifications</span>
-                      <span className="ml-auto h-5 w-5 bg-primary rounded-full text-white text-xs flex items-center justify-center">
-                        3
-                      </span>
-                    </a>
+                    </button>
                   </li>
                   <li>
-                    <a
-                      href="#"
-                      className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                    <button
+                      onClick={() => handleNavigation('/chat')}
+                      className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <MessageCircle className="h-5 w-5 mr-3 text-gray-700" />
                       <span>Messages</span>
-                      <span className="ml-auto h-5 w-5 bg-primary rounded-full text-white text-xs flex items-center justify-center">
-                        5
-                      </span>
-                    </a>
+                    </button>
                   </li>
                   <li>
-                    <a
-                      href="#"
-                      className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                    <button
+                      onClick={() => {/* TODO: Add bookmarks page */}}
+                      className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <BookmarkIcon className="h-5 w-5 mr-3 text-gray-700" />
                       <span>Bookmarks</span>
-                    </a>
+                    </button>
                   </li>
                   <li>
-                    <a
-                      href="#"
-                      className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                    <button
+                      onClick={() => {/* TODO: Add liked posts page */}}
+                      className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <Heart className="h-5 w-5 mr-3 text-gray-700" />
                       <span>Liked Posts</span>
-                    </a>
+                    </button>
                   </li>
                   <li>
-                    <a
-                      href="#"
-                      className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                    <button
+                      onClick={() => handleNavigation(`/profile/${user?.id}`)}
+                      className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                     >
                       <UserRound className="h-5 w-5 mr-3 text-gray-700" />
                       <span>Profile</span>
-                    </a>
+                    </button>
                   </li>
                 </>
               )}
@@ -159,23 +177,23 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
 
             <ul className="space-y-1">
               <li>
-                <a
-                  href="#"
-                  className="flex items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => {/* TODO: Add settings page */}}
+                  className="flex w-full items-center py-2.5 px-4 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   <Settings className="h-5 w-5 mr-3 text-gray-700" />
                   <span>Settings</span>
-                </a>
+                </button>
               </li>
               {isAuthenticated && (
                 <li>
-                  <a
-                    href="#"
-                    className="flex items-center py-2.5 px-4 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                  <button
+                    onClick={handleSignOut}
+                    className="flex w-full items-center py-2.5 px-4 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   >
                     <LogOut className="h-5 w-5 mr-3" />
                     <span>Logout</span>
-                  </a>
+                  </button>
                 </li>
               )}
             </ul>

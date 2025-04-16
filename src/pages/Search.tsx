@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -8,16 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Post from "@/components/Post";
 import NavBar from "@/components/NavBar";
 import BottomNav from "@/components/BottomNav";
-import { Profile, Post as PostType } from "@/types/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const [searchInput, setSearchInput] = useState(query);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   useEffect(() => {
     setSearchInput(query);
@@ -69,6 +71,8 @@ const Search = () => {
             .eq('user_id', user.id)
             .single();
           
+          if (likeData) isLiked = true;
+          
           const { data: bookmarkData } = await supabase
             .from('bookmarks')
             .select('*')
@@ -76,8 +80,7 @@ const Search = () => {
             .eq('user_id', user.id)
             .single();
           
-          isLiked = !!likeData;
-          isBookmarked = !!bookmarkData;
+          if (bookmarkData) isBookmarked = true;
         }
         
         return { 
@@ -121,7 +124,7 @@ const Search = () => {
             .eq('following_id', profile.id)
             .single();
           
-          isFollowing = !!followData;
+          if (followData) isFollowing = true;
         }
         
         return { 
@@ -137,7 +140,8 @@ const Search = () => {
 
   const { 
     data: postsData, 
-    isLoading: postsLoading 
+    isLoading: postsLoading,
+    refetch: refetchPosts
   } = useQuery({
     queryKey: ['search', 'posts', query],
     queryFn: searchPosts,
@@ -147,7 +151,8 @@ const Search = () => {
 
   const { 
     data: usersData, 
-    isLoading: usersLoading 
+    isLoading: usersLoading,
+    refetch: refetchUsers
   } = useQuery({
     queryKey: ['search', 'users', query],
     queryFn: searchUsers,
@@ -156,7 +161,10 @@ const Search = () => {
   });
 
   const toggleFollow = async (userId: string, currentlyFollowing: boolean) => {
-    if (!user) return;
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
     
     try {
       if (currentlyFollowing) {
@@ -173,6 +181,9 @@ const Search = () => {
             following_id: userId
           });
       }
+      
+      // Refetch users data to update UI
+      refetchUsers();
     } catch (error) {
       console.error("Error toggling follow:", error);
     }
@@ -182,7 +193,7 @@ const Search = () => {
     <div className="min-h-screen bg-gray-50">
       <NavBar 
         isAuthenticated={!!user}
-        onAuthClick={() => {}}
+        onAuthClick={() => navigate('/auth')}
         onMenuToggle={() => {}}
       />
       
@@ -260,7 +271,11 @@ const Search = () => {
               </div>
               
               {postsData.posts.map((post) => (
-                <Post key={post.id} {...post} />
+                <Post 
+                  key={post.id} 
+                  {...post} 
+                  onPostUpdate={refetchPosts}
+                />
               ))}
             </div>
           )}
@@ -304,8 +319,8 @@ const Search = () => {
               
               {usersData.users.map((userProfile: any) => (
                 <div key={userProfile.id} className="p-4 border-b flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Avatar className="h-12 w-12 mr-3">
+                  <div className="flex items-center" onClick={() => navigate(`/profile/${userProfile.id}`)}>
+                    <Avatar className="h-12 w-12 mr-3 cursor-pointer">
                       <AvatarImage src={userProfile.avatar_url || ''} />
                       <AvatarFallback className="bg-primary text-white">
                         {userProfile.display_name?.substring(0, 2).toUpperCase() || 
@@ -313,7 +328,7 @@ const Search = () => {
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div>
+                    <div className="cursor-pointer">
                       <div className="font-semibold">{userProfile.display_name}</div>
                       <div className="text-sm text-gray-500">@{userProfile.username}</div>
                       
@@ -347,7 +362,7 @@ const Search = () => {
       <BottomNav 
         isAuthenticated={!!user}
         onCreatePost={() => {}}
-        onAuthClick={() => {}}
+        onAuthClick={() => navigate('/auth')}
       />
     </div>
   );

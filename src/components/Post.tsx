@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Heart, MessageCircle, Share, Bookmark, MoreHorizontal, Link2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -207,25 +206,25 @@ const Post: React.FC<PostProps> = ({
             </Avatar>
           </Link>
           <div>
-            <div className="flex items-center">
+            <div className="flex flex-wrap items-center gap-x-1">
               <Link 
                 to={`/profile/${profile?.id || user_id}`}
-                className="font-semibold hover:underline"
+                className="font-semibold hover:underline mr-1"
               >
                 {profile?.display_name || 'User'}
               </Link>
               <Link 
                 to={`/profile/${profile?.id || user_id}`}
-                className="text-sm text-gray-500 ml-2 hover:underline"
+                className="text-sm text-gray-500 hover:underline mr-1"
               >
                 @{profile?.username || 'user'}
               </Link>
-              <span className="mx-1 text-gray-500">·</span>
-              <span className="text-sm text-gray-500">
+              <span className="text-gray-500">·</span>
+              <span className="text-sm text-gray-500 ml-1">
                 {formatPostDate(created_at)}
               </span>
             </div>
-            <p className="mt-1 text-gray-800">{content}</p>
+            <p className="mt-2 text-gray-800 whitespace-pre-wrap">{content}</p>
           </div>
         </div>
         

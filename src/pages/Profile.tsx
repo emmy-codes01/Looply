@@ -3,7 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   MessageCircle, Calendar, Link as LinkIcon, MapPin, Pencil, 
-  ArrowLeft, Loader, LogOut, UserRound, Heart, FileText, Image 
+  ArrowLeft, Loader, LogOut, UserRound, Heart, FileText, Image,
+  Camera, Upload
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import BottomNav from "@/components/BottomNav";
 import Post from "@/components/Post";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { Profile as ProfileType, Post as PostType } from "@/types/supabase";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -24,6 +24,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 const profileFormSchema = z.object({
   displayName: z.string().min(1, "Display name is required").max(50),
@@ -34,6 +35,10 @@ const profileFormSchema = z.object({
   location: z.string().max(30, "Location must be at most 30 characters").optional(),
   website: z.string().max(100, "Website URL must be at most 100 characters").optional(),
 });
+
+interface ProfileWithCover extends Profile {
+  cover_url?: string | null;
+}
 
 const Profile = () => {
   const { profileId } = useParams<{ profileId?: string }>();
@@ -46,6 +51,8 @@ const Profile = () => {
   const [followingCount, setFollowingCount] = useState(0);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
   const targetProfileId = profileId || user?.id;
@@ -64,15 +71,20 @@ const Profile = () => {
   const fetchProfile = async () => {
     if (!targetProfileId) return null;
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', targetProfileId)
-      .single();
-    
-    if (error) throw error;
-    
-    return data as ProfileType;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', targetProfileId)
+        .single();
+      
+      if (error) throw error;
+      
+      return data as ProfileWithCover;
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      return null;
+    }
   };
   
   const fetchProfilePosts = async () => {
@@ -238,6 +250,25 @@ const Profile = () => {
     }
   };
   
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image is too large. Maximum size is 5MB.");
+        return;
+      }
+      
+      if (!file.type.match(/image\/(jpeg|png|gif|webp)/)) {
+        toast.error("Invalid file type. Please use JPEG, PNG, GIF, or WebP.");
+        return;
+      }
+      
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+    }
+  };
+  
   const uploadAvatar = async () => {
     if (!user || !avatarFile) return null;
     
@@ -267,26 +298,75 @@ const Profile = () => {
     }
   };
   
+  const uploadCover = async () => {
+    if (!user || !coverFile) return null;
+    
+    try {
+      setIsUploading(true);
+      
+      const fileExt = coverFile.name.split('.').pop();
+      const filePath = `${user.id}/cover_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, coverFile);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Error uploading cover:", error);
+      toast.error("Failed to upload cover image");
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
   const onSubmit = async (data: z.infer<typeof profileFormSchema>) => {
     if (!user) return;
     
     try {
+      setIsUploading(true);
+      
       let avatarUrl = null;
       if (avatarFile) {
         avatarUrl = await uploadAvatar();
-        if (!avatarUrl) return;
+        if (!avatarUrl) {
+          setIsUploading(false);
+          return;
+        }
       }
       
-      await updateProfile({
-        display_name: data.displayName,
-        username: data.username,
-        bio: data.bio || null,
-        ...(avatarUrl && { avatar_url: avatarUrl }),
-      });
+      let coverUrl = null;
+      if (coverFile) {
+        coverUrl = await uploadCover();
+        if (!coverUrl) {
+          setIsUploading(false);
+          return;
+        }
+      }
+      
+      await supabase
+        .from('profiles')
+        .update({
+          display_name: data.displayName,
+          username: data.username,
+          bio: data.bio || null,
+          ...(avatarUrl && { avatar_url: avatarUrl }),
+          ...(coverUrl && { cover_url: coverUrl }),
+        })
+        .eq('id', user.id);
       
       setIsEditProfileOpen(false);
       setAvatarFile(null);
       setAvatarPreview(null);
+      setCoverFile(null);
+      setCoverPreview(null);
       
       refetchProfile();
       
@@ -303,6 +383,8 @@ const Profile = () => {
       } else {
         toast.error("Failed to update profile");
       }
+    } finally {
+      setIsUploading(false);
     }
   };
   
@@ -413,13 +495,26 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-50">
       <NavBar 
         isAuthenticated={!!user}
-        onAuthClick={() => {}}
+        onAuthClick={() => navigate('/auth')}
         onMenuToggle={() => {}}
       />
       
       <main className="max-w-2xl mx-auto pt-16 pb-24 bg-white min-h-screen">
         <div className="relative">
-          <div className="h-32 bg-gradient-to-r from-primary/20 to-primary/40" />
+          <div 
+            className="h-48 bg-gradient-to-r from-primary/20 to-primary/40 bg-cover bg-center"
+            style={profileData.cover_url ? { backgroundImage: `url(${profileData.cover_url})` } : {}}
+          />
+          
+          {user && targetProfileId === user.id && (
+            <button 
+              className="absolute right-4 top-4 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-colors"
+              onClick={() => setIsEditProfileOpen(true)}
+            >
+              <Camera className="h-5 w-5" />
+            </button>
+          )}
+          
           <div className="absolute left-4 -bottom-16">
             <Avatar className="h-32 w-32 border-4 border-white">
               <AvatarImage src={profileData.avatar_url || ''} />
@@ -538,6 +633,7 @@ const Profile = () => {
                     <Post 
                       key={post.id} 
                       {...post}
+                      onPostUpdate={refetchPosts}
                     />
                   ))}
                 </div>
@@ -574,11 +670,11 @@ const Profile = () => {
       <BottomNav 
         isAuthenticated={!!user}
         onCreatePost={() => {}}
-        onAuthClick={() => {}}
+        onAuthClick={() => navigate('/auth')}
       />
       
       <Sheet open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
-        <SheetContent className="sm:max-w-md">
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit Profile</SheetTitle>
             <SheetDescription>
@@ -589,30 +685,67 @@ const Profile = () => {
           <div className="py-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="flex flex-col items-center mb-4">
-                  <Avatar className="h-24 w-24 mb-2">
-                    <AvatarImage 
-                      src={avatarPreview || profileData.avatar_url || ''} 
-                    />
-                    <AvatarFallback className="bg-primary text-white text-2xl">
-                      {profileData.display_name?.substring(0, 2).toUpperCase() || 
-                       profileData.username?.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="space-y-4">
+                  <div className="relative w-full">
+                    <div 
+                      className="h-32 w-full rounded-lg bg-gray-100 bg-cover bg-center flex items-center justify-center overflow-hidden"
+                      style={
+                        coverPreview 
+                          ? { backgroundImage: `url(${coverPreview})` } 
+                          : profileData.cover_url 
+                            ? { backgroundImage: `url(${profileData.cover_url})` }
+                            : {}
+                      }
+                    >
+                      {!coverPreview && !profileData.cover_url && (
+                        <Upload className="h-8 w-8 text-gray-400" />
+                      )}
+                      <label 
+                        htmlFor="cover-upload" 
+                        className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity text-white"
+                      >
+                        <div className="flex flex-col items-center">
+                          <Camera className="h-6 w-6 mb-1" />
+                          <span className="text-sm">Change cover photo</span>
+                        </div>
+                      </label>
+                      <input
+                        id="cover-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleCoverChange}
+                      />
+                    </div>
+                  </div>
                   
-                  <label 
-                    htmlFor="avatar-upload" 
-                    className="text-sm text-primary cursor-pointer hover:underline"
-                  >
-                    Change profile picture
-                  </label>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
+                  <Separator className="my-4" />
+                  
+                  <div className="flex flex-col items-center mb-4">
+                    <Avatar className="h-24 w-24 mb-2">
+                      <AvatarImage 
+                        src={avatarPreview || profileData.avatar_url || ''} 
+                      />
+                      <AvatarFallback className="bg-primary text-white text-2xl">
+                        {profileData.display_name?.substring(0, 2).toUpperCase() || 
+                         profileData.username?.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <label 
+                      htmlFor="avatar-upload" 
+                      className="text-sm text-primary cursor-pointer hover:underline"
+                    >
+                      Change profile picture
+                    </label>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                  </div>
                 </div>
                 
                 <FormField

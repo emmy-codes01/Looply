@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,9 +8,44 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { Message, Profile, Conversation } from "@/types/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+// Define interfaces to fix type recursion issue
+interface MessageType {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  conversation_id?: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface ProfileType {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio?: string | null;
+}
+
+interface ConversationType {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  last_message_at: string;
+  created_at: string;
+  user1?: ProfileType;
+  user2?: ProfileType;
+}
 
 const Chat = () => {
   const { conversationId } = useParams<{ conversationId?: string }>();
@@ -37,7 +71,7 @@ const Chat = () => {
     
     if (error) throw error;
     
-    return data as any[];
+    return data as ConversationType[];
   };
   
   const fetchMessages = async () => {
@@ -49,8 +83,7 @@ const Chat = () => {
         *,
         sender:profiles!sender_id(*)
       `)
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-      .eq(conversationId ? 'conversation_id' : 'id', conversationId || '')
+      .eq('conversation_id', conversationId)
       .order('created_at');
     
     if (error) throw error;
@@ -67,21 +100,7 @@ const Chat = () => {
         .in('id', unreadMessages.map(msg => msg.id));
     }
     
-    return data as Message[];
-  };
-  
-  const fetchProfile = async (userId: string) => {
-    if (!userId) return null;
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (error) throw error;
-    
-    return data as Profile;
+    return data as MessageType[];
   };
   
   const { 
@@ -116,11 +135,6 @@ const Chat = () => {
       const conversation = conversations.find(c => c.id === conversationId);
       
       if (!conversation) return null;
-      
-      const partnerId = 
-        conversation.user1_id === user.id 
-          ? conversation.user2_id 
-          : conversation.user1_id;
       
       return conversation.user1_id === user.id 
         ? conversation.user2
@@ -193,6 +207,7 @@ const Chat = () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (error) {
       console.error("Error sending message:", error);
+      toast.error("Failed to send message");
     }
   };
   
@@ -200,7 +215,7 @@ const Chat = () => {
     return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
   };
   
-  const getOtherUser = (conversation: any) => {
+  const getOtherUser = (conversation: ConversationType) => {
     if (!user) return null;
     
     return conversation.user1_id === user.id 
@@ -333,7 +348,7 @@ const Chat = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {conversations?.map((conversation: Conversation & { user1: Profile; user2: Profile }) => {
+              {conversations?.map((conversation: ConversationType) => {
                 const otherUser = getOtherUser(conversation);
                 if (!otherUser) return null;
                 
