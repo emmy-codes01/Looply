@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import logo from '../images/logo2.gif'
 
 interface NavBarProps {
   isAuthenticated: boolean;
@@ -63,7 +64,10 @@ const NavBar: React.FC<NavBarProps> = ({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold text-primary tracking-tight">Corner Chat</h1>
+          <div className="flex justify-center items-center">
+            <img src={logo} alt="logo" className="size-10 opacity-60" />
+            <h1 className="text-xl font-bold text-primary tracking-tight">Looply</h1>
+            </div>
         </div>
 
         {/* Search bar - Desktop */}

@@ -21,8 +21,8 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gray-50">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-primary mb-2">Corner Chat</h1>
-        <p className="text-gray-600">Join our community today</p>
+        <h1 className="text-3xl font-bold text-primary mb-2">Looply</h1>
+        <p className="text-gray-600">Join Looply today</p>
       </div>
       
       <AuthForm onSuccess={handleSuccess} />

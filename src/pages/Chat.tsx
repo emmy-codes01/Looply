@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, ArrowLeft, Loader, Search, Info, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, Loader, Search, Info, MessageCircle, HomeIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +31,7 @@ const Chat = () => {
   const queryClient = useQueryClient();
   const [messageInput, setMessageInput] = useState("");
   const [messageSubscription, setMessageSubscription] = useState<any>(null);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const fetchConversations = async () => {
@@ -110,6 +110,7 @@ const Chat = () => {
   const { 
     data: chatPartner,
     isLoading: profileLoading,
+    refetch: refetchChatPartner
   } = useQuery({
     queryKey: ['chat-partner', conversationId, conversations],
     queryFn: async () => {
@@ -118,13 +119,31 @@ const Chat = () => {
       // Find the conversation
       const conversation = conversations.find(c => c.id === conversationId);
       
-      if (!conversation) return null;
+      if (!conversation) {
+        // If conversation isn't in the list, try to fetch it directly
+        const { data, error } = await supabase
+          .from('conversations')
+          .select(`
+            *,
+            user1:profiles!user1_id(*),
+            user2:profiles!user2_id(*)
+          `)
+          .eq('id', conversationId)
+          .single();
+          
+        if (error) {
+          console.error("Error fetching single conversation:", error);
+          return null;
+        }
+        
+        return data.user1_id === user.id ? data.user2 : data.user1;
+      }
       
       return conversation.user1_id === user.id 
         ? conversation.user2
         : conversation.user1;
     },
-    enabled: !!user && !!conversationId && !!conversations,
+    enabled: !!user && !!conversationId,
   });
   
   // Subscribe to new messages
@@ -143,6 +162,7 @@ const Chat = () => {
         },
         (payload) => {
           queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
       .subscribe();
@@ -164,67 +184,88 @@ const Chat = () => {
   }, [messages]);
   
   const sendMessage = async () => {
-    if (!user || !conversationId || !messageInput.trim() || !chatPartner) return;
+    if (!user || !conversationId || !messageInput.trim() || !chatPartner || isSending) return;
+    
+    setIsSending(true);
     
     try {
-      // First, check if the conversation exists
-      const { data: existingConv, error: convError } = await supabase
+      // Get partner user ID
+      const partnerId = chatPartner.id;
+      
+      // Check if conversation exists
+      const { data: existingConv, error: convCheckError } = await supabase
         .from('conversations')
         .select('*')
         .eq('id', conversationId)
-        .single();
+        .maybeSingle();
       
-      if (convError && convError.code !== 'PGRST116') {
-        console.error("Error checking conversation:", convError);
-        throw convError;
-      }
+      let actualConversationId = conversationId;
       
       // If conversation doesn't exist, create it
       if (!existingConv) {
-        const { error: createConvError } = await supabase
+        // Create a new conversation
+        const { data: newConv, error: createConvError } = await supabase
           .from('conversations')
           .insert({
-            id: conversationId,
+            // Don't send the existing conversationId if it doesn't exist in DB
             user1_id: user.id,
-            user2_id: chatPartner.id,
+            user2_id: partnerId,
             last_message_at: new Date().toISOString()
-          });
+          })
+          .select()
+          .single();
         
         if (createConvError) {
           console.error("Error creating conversation:", createConvError);
-          throw createConvError;
+          toast.error("Failed to create conversation. Please try again.");
+          setIsSending(false);
+          return;
+        }
+        
+        actualConversationId = newConv.id;
+        
+        // If we created a new conversation, redirect to it
+        if (actualConversationId !== conversationId) {
+          navigate(`/chat/${actualConversationId}`, { replace: true });
         }
       }
       
-      // Now insert the message
+      // Send the message
       const { error: msgError } = await supabase
         .from('messages')
         .insert({
           sender_id: user.id,
-          receiver_id: chatPartner.id,
-          conversation_id: conversationId,
-          content: messageInput.trim()
+          receiver_id: partnerId,
+          conversation_id: actualConversationId,
+          content: messageInput.trim(),
+          is_read: false
         });
       
       if (msgError) {
         console.error("Error sending message:", msgError);
-        throw msgError;
+        toast.error("Failed to send message. Please try again.");
+        setIsSending(false);
+        return;
       }
       
       // Update conversation last_message_at
       await supabase
         .from('conversations')
         .update({ last_message_at: new Date().toISOString() })
-        .eq('id', conversationId);
+        .eq('id', actualConversationId);
       
       setMessageInput("");
       
-      // Refetch messages and conversations
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      // Refetch data
+      queryClient.invalidateQueries({ queryKey: ['messages', actualConversationId] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      refetchChatPartner();
+      
+      setIsSending(false);
     } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Failed to send message. Please try again.");
+      console.error("Error in send message flow:", error);
+      toast.error("An error occurred while sending your message.");
+      setIsSending(false);
     }
   };
   
@@ -251,7 +292,7 @@ const Chat = () => {
         `and(user1_id.eq.${user.id},user2_id.eq.${partnerId}),` + 
         `and(user1_id.eq.${partnerId},user2_id.eq.${user.id})`
       )
-      .single();
+      .maybeSingle();
     
     if (existingConv) {
       navigate(`/chat/${existingConv.id}`);
@@ -264,6 +305,7 @@ const Chat = () => {
       .insert({
         user1_id: user.id,
         user2_id: partnerId,
+        last_message_at: new Date().toISOString()
       })
       .select()
       .single();
@@ -275,6 +317,11 @@ const Chat = () => {
     }
     
     navigate(`/chat/${data.id}`);
+  };
+  
+  // Handler for going back to previous page
+  const handleGoBack = () => {
+    navigate(-1);
   };
   
   return (
@@ -329,8 +376,15 @@ const Chat = () => {
             )}
           </div>
         ) : (
-          <div className="p-4">
-            <h1 className="text-xl font-bold">Messages</h1>
+          <div className="p-4 flex justify-between items-center">
+              
+              <h1 className="text-xl font-bold flex-1">Messages</h1>
+              <Link 
+                to="/"
+              className="mr-2"
+            >
+              <HomeIcon className="h-6 w-6" />
+            </Link>
           </div>
         )}
       </div>
@@ -489,14 +543,19 @@ const Chat = () => {
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 className="flex-1 rounded-full"
+                disabled={isSending}
               />
               <Button 
                 type="submit"
                 size="icon"
                 className="rounded-full"
-                disabled={!messageInput.trim()}
+                disabled={!messageInput.trim() || isSending}
               >
-                <Send className="h-5 w-5" />
+                {isSending ? (
+                  <Loader className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
               </Button>
             </form>
           </div>

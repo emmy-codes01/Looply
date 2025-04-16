@@ -115,11 +115,12 @@ const Index = () => {
     // In a real app, this would fetch trending posts based on engagement metrics
     // For now, just return a list of trending topics
     return [
-      { id: 1, tag: "#ReactJS", postsCount: 1234 },
-      { id: 2, tag: "#WebDevelopment", postsCount: 982 },
-      { id: 3, tag: "#TailwindCSS", postsCount: 765 },
-      { id: 4, tag: "#JavaScript", postsCount: 543 },
-      { id: 5, tag: "#TechNews", postsCount: 421 },
+    { id: 6, tag: "#CBEX", postsCount: 4213 },
+      { id: 1, tag: "#dortmund vs barcelona", postsCount: 1234 },
+      { id: 2, tag: "#aston villa vs psg", postsCount: 982 },
+      { id: 3, tag: "#championsleague", postsCount: 765 },
+      { id: 4, tag: "#T for Thanks", postsCount: 543 },
+      { id: 5, tag: "#tinubu", postsCount: 421 },
     ];
   };
   
@@ -367,7 +368,7 @@ const Index = () => {
                           <p className="font-semibold text-primary">{topic.tag}</p>
                           <p className="text-sm text-gray-500">{topic.postsCount} posts</p>
                         </div>
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                        <span className="text-xs bg-primary/10 text-primary p-3 py-3 rounded-full font-medium">
                           Trending
                         </span>
                       </div>

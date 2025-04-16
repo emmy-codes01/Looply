@@ -58,7 +58,7 @@ const NetworkDetector = () => {
     return (
       <div className="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-50 bg-destructive text-destructive-foreground py-2 px-4 rounded-full flex items-center space-x-2 shadow-lg animate-fade-in">
         <WifiOff size={16} />
-        <span className="text-sm font-medium">You're offline. Check your connection.</span>
+        <span className="text-xs font-medium">You're offline. Check your connection.</span>
       </div>
     );
   }
@@ -67,7 +67,7 @@ const NetworkDetector = () => {
     return (
       <div className="fixed bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-white py-2 px-4 rounded-full flex items-center space-x-2 shadow-lg animate-fade-in">
         <Wifi size={16} className="animate-pulse-light" />
-        <span className="text-sm font-medium">Weak connection. Content may load slowly.</span>
+        <span className="text-xs font-medium">Weak connection. Content may load slowly.</span>
       </div>
     );
   }

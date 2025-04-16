@@ -68,7 +68,7 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
         <div className="flex flex-col h-full">
           {/* Header with logo and close button */}
           <div className="flex justify-between items-center p-5 border-b">
-            <h2 className="text-xl font-bold text-primary">Corner Chat</h2>
+            <h2 className="text-xl font-bold text-primary">Looply</h2>
           </div>
 
           {/* User Profile or Login Button */}

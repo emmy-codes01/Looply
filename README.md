@@ -1,73 +1,16 @@
-# Welcome to your Lovable project
+# Looply
 
-## Project info
+Looply is a modern and sleek social media web application designed to foster real connections and dynamic interactions. It offers all the core features of a social platform—posting, following, liking, commenting, and sharing—while introducing unique experiences like Loop Threads, Mood-Based Feeds, and more.
 
-**URL**: https://lovable.dev/projects/a4859084-f420-44bd-b455-fc5a089daa4c
+## 🌟 Features
 
-## How can I edit this code?
+- 🔁 **Loop Threads** – Let posts evolve over time through a series of connected updates.  
+- 💬 **Rich Interaction System** – Like, comment, and share posts with real-time feedback.  
+- 🧠 **Contextual Comments** – Highlight the most valuable insights from the community.  
+- 🎯 **Mood-Based Feeds** – Switch between Chill, Deep, Trending, and Fresh timelines.  
+- 🔗 **Connection Circles** – A new way to discover and engage with people of shared interests.  
+- ⏳ **Thought Capsules** – Share ideas now and reveal them later.  
+- 🎮 **Social Karma (LoopScore)** – A reputation system based on positive contributions.  
+- 📍 **Vibe Map** – A global snapshot of how users feel, in real-time.  
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/a4859084-f420-44bd-b455-fc5a089daa4c) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a4859084-f420-44bd-b455-fc5a089daa4c) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+> **Note:** This is an ongoing project — new systems and features are actively being developed and refined.
