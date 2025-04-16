@@ -1,6 +1,7 @@
 
 import { Home, Compass, Bell, UserRound, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link, useLocation } from "react-router-dom";
 
 interface BottomNavProps {
   isAuthenticated: boolean;
@@ -13,18 +14,45 @@ const BottomNav: React.FC<BottomNavProps> = ({
   onCreatePost,
   onAuthClick,
 }) => {
+  const location = useLocation();
+  const isActive = (path: string) => location.pathname === path;
+  
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-40 md:hidden animate-fade-in">
       <div className="flex items-center justify-around h-16">
-        <button className="group flex flex-col items-center justify-center w-1/5 py-2">
-          <Home className="h-6 w-6 text-primary" />
-          <span className="text-xs mt-1 text-primary font-medium">Home</span>
-        </button>
+        <Link 
+          to="/"
+          className={cn(
+            "group flex flex-col items-center justify-center w-1/5 py-2",
+            isActive('/') && "text-primary"
+          )}
+        >
+          <Home className={cn(
+            "h-6 w-6",
+            isActive('/') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+          )} />
+          <span className={cn(
+            "text-xs mt-1 font-medium",
+            isActive('/') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+          )}>Home</span>
+        </Link>
         
-        <button className="group flex flex-col items-center justify-center w-1/5 py-2">
-          <Compass className="h-6 w-6 text-gray-500 group-hover:text-primary transition-colors" />
-          <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors">Explore</span>
-        </button>
+        <Link 
+          to="/search"
+          className={cn(
+            "group flex flex-col items-center justify-center w-1/5 py-2",
+            isActive('/search') && "text-primary"
+          )}
+        >
+          <Compass className={cn(
+            "h-6 w-6",
+            isActive('/search') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+          )} />
+          <span className={cn(
+            "text-xs mt-1 font-medium",
+            isActive('/search') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+          )}>Explore</span>
+        </Link>
         
         <button 
           className={cn(
@@ -40,20 +68,44 @@ const BottomNav: React.FC<BottomNavProps> = ({
         
         {isAuthenticated ? (
           <>
-            <button className="group flex flex-col items-center justify-center w-1/5 py-2">
+            <Link 
+              to="/notifications"
+              className={cn(
+                "group flex flex-col items-center justify-center w-1/5 py-2",
+                isActive('/notifications') && "text-primary"
+              )}
+            >
               <div className="relative">
-                <Bell className="h-6 w-6 text-gray-500 group-hover:text-primary transition-colors" />
+                <Bell className={cn(
+                  "h-6 w-6",
+                  isActive('/notifications') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+                )} />
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-white text-xs flex items-center justify-center">
                   3
                 </span>
               </div>
-              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors">Alerts</span>
-            </button>
+              <span className={cn(
+                "text-xs mt-1 font-medium",
+                isActive('/notifications') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+              )}>Alerts</span>
+            </Link>
             
-            <button className="group flex flex-col items-center justify-center w-1/5 py-2">
-              <UserRound className="h-6 w-6 text-gray-500 group-hover:text-primary transition-colors" />
-              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors">Profile</span>
-            </button>
+            <Link 
+              to="/profile"
+              className={cn(
+                "group flex flex-col items-center justify-center w-1/5 py-2",
+                isActive('/profile') && "text-primary"
+              )}
+            >
+              <UserRound className={cn(
+                "h-6 w-6",
+                isActive('/profile') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+              )} />
+              <span className={cn(
+                "text-xs mt-1 font-medium",
+                isActive('/profile') ? "text-primary" : "text-gray-500 group-hover:text-primary transition-colors"
+              )}>Profile</span>
+            </Link>
           </>
         ) : (
           <>
@@ -62,7 +114,7 @@ const BottomNav: React.FC<BottomNavProps> = ({
               onClick={onAuthClick}
             >
               <Bell className="h-6 w-6 text-gray-500 group-hover:text-primary transition-colors" />
-              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors">Alerts</span>
+              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors font-medium">Alerts</span>
             </button>
             
             <button 
@@ -70,7 +122,7 @@ const BottomNav: React.FC<BottomNavProps> = ({
               onClick={onAuthClick}
             >
               <UserRound className="h-6 w-6 text-gray-500 group-hover:text-primary transition-colors" />
-              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors">Profile</span>
+              <span className="text-xs mt-1 text-gray-500 group-hover:text-primary transition-colors font-medium">Profile</span>
             </button>
           </>
         )}

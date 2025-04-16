@@ -5,7 +5,9 @@ import BottomSheet from "./BottomSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CreatePostSheetProps {
   isOpen: boolean;
@@ -18,12 +20,12 @@ const CreatePostSheet: React.FC<CreatePostSheetProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { user, profile } = useAuth();
   const [content, setContent] = useState("");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imageURLs, setImageURLs] = useState<string[]>([]);
   const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
   
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -31,11 +33,7 @@ const CreatePostSheet: React.FC<CreatePostSheetProps> = ({
       
       // Limit to 4 images max
       if (selectedImages.length + newFiles.length > 4) {
-        toast({
-          title: "Too many images",
-          description: "You can only attach up to 4 images per post",
-          variant: "destructive",
-        });
+        toast.error("You can only attach up to 4 images per post");
         return;
       }
       
@@ -53,25 +51,72 @@ const CreatePostSheet: React.FC<CreatePostSheetProps> = ({
     setImageURLs(prev => prev.filter((_, i) => i !== index));
   };
   
-  const handlePost = () => {
-    if (!content.trim() && selectedImages.length === 0) {
-      toast({
-        title: "Cannot create empty post",
-        description: "Please add some text or an image to your post",
-        variant: "destructive",
-      });
+  const uploadImages = async () => {
+    if (selectedImages.length === 0) return [];
+    
+    const uploadPromises = selectedImages.map(async (file) => {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${user?.id}/${fileName}`;
+      
+      const { data, error } = await supabase.storage
+        .from('post-images')
+        .upload(filePath, file);
+      
+      if (error) throw error;
+      
+      const { data: urlData } = supabase.storage
+        .from('post-images')
+        .getPublicUrl(filePath);
+      
+      return urlData.publicUrl;
+    });
+    
+    return Promise.all(uploadPromises);
+  };
+  
+  const handlePost = async () => {
+    if (!user || (!content.trim() && selectedImages.length === 0)) {
+      toast.error("Please add some text or an image to your post");
       return;
     }
     
-    setIsPosting(true);
-    
-    // Simulate API call with timeout
-    setTimeout(() => {
-      setIsPosting(false);
-      toast({
-        title: "Post created",
-        description: "Your post has been published successfully",
-      });
+    try {
+      setIsPosting(true);
+      
+      // Upload images first
+      let imageUrls: string[] = [];
+      if (selectedImages.length > 0) {
+        imageUrls = await uploadImages();
+      }
+      
+      // Create the post
+      const { data: postData, error: postError } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          content: content.trim() || " ", // Use space if no content
+        })
+        .select()
+        .single();
+      
+      if (postError) throw postError;
+      
+      // Add image records if there are any
+      if (imageUrls.length > 0) {
+        const imageRecords = imageUrls.map(url => ({
+          post_id: postData.id,
+          image_url: url
+        }));
+        
+        const { error: imagesError } = await supabase
+          .from('post_images')
+          .insert(imageRecords);
+        
+        if (imagesError) throw imagesError;
+      }
+      
+      toast.success("Post created successfully");
       
       // Clean up and reset
       imageURLs.forEach(url => URL.revokeObjectURL(url));
@@ -80,7 +125,12 @@ const CreatePostSheet: React.FC<CreatePostSheetProps> = ({
       setImageURLs([]);
       
       onSuccess();
-    }, 1500);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      toast.error("Failed to create post");
+    } finally {
+      setIsPosting(false);
+    }
   };
   
   return (
@@ -92,12 +142,15 @@ const CreatePostSheet: React.FC<CreatePostSheetProps> = ({
       <div className="space-y-4">
         <div className="flex space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100" />
-            <AvatarFallback className="bg-primary text-white">JD</AvatarFallback>
+            <AvatarImage src={profile?.avatar_url || ''} />
+            <AvatarFallback className="bg-primary text-white">
+              {profile?.display_name?.substring(0, 2).toUpperCase() || 
+               profile?.username?.substring(0, 2).toUpperCase() || 'U'}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <p className="font-semibold">Jane Doe</p>
-            <p className="text-sm text-gray-500">@janedoe</p>
+            <p className="font-semibold">{profile?.display_name || 'User'}</p>
+            <p className="text-sm text-gray-500">@{profile?.username || 'user'}</p>
           </div>
         </div>
         

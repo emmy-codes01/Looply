@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 
 interface NavBarProps {
   isAuthenticated: boolean;
@@ -17,8 +19,11 @@ const NavBar: React.FC<NavBarProps> = ({
   onAuthClick,
   onMenuToggle
 }) => {
+  const { profile } = useAuth();
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,6 +35,15 @@ const NavBar: React.FC<NavBarProps> = ({
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
+      setSearchInput("");
+      setIsSearchOpen(false);
+    }
+  };
 
   return (
     <header 
@@ -54,13 +68,19 @@ const NavBar: React.FC<NavBarProps> = ({
 
         {/* Search bar - Desktop */}
         <div className="hidden md:flex items-center relative max-w-md w-full mx-4">
-          <div className="absolute left-3 text-gray-500">
-            <Search size={18} />
-          </div>
-          <Input 
-            placeholder="Search..." 
-            className="pl-10 pr-4 w-full rounded-full bg-gray-100 border-0 focus-visible:ring-1 focus-visible:ring-primary"
-          />
+          <form onSubmit={handleSearch} className="w-full">
+            <div className="relative w-full">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <Search size={18} />
+              </div>
+              <Input 
+                placeholder="Search..." 
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="pl-10 pr-4 w-full rounded-full bg-gray-100 border-0 focus-visible:ring-1 focus-visible:ring-primary"
+              />
+            </div>
+          </form>
         </div>
 
         {/* Actions */}
@@ -77,18 +97,37 @@ const NavBar: React.FC<NavBarProps> = ({
 
           {isAuthenticated ? (
             <>
-              <Button variant="ghost" size="icon" className="relative">
-                <MessageCircle className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative"
+                asChild
+              >
+                <Link to="/chat">
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
+                </Link>
               </Button>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative"
+                asChild
+              >
+                <Link to="/notifications">
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
+                </Link>
               </Button>
-              <Avatar className="h-8 w-8 border border-gray-200">
-                <AvatarImage src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100" />
-                <AvatarFallback className="bg-primary text-white">JD</AvatarFallback>
-              </Avatar>
+              <Link to="/profile">
+                <Avatar className="h-8 w-8 border border-gray-200">
+                  <AvatarImage src={profile?.avatar_url || ''} />
+                  <AvatarFallback className="bg-primary text-white">
+                    {profile?.display_name?.substring(0, 2).toUpperCase() || 
+                     profile?.username?.substring(0, 2).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
             </>
           ) : (
             <>
@@ -120,16 +159,20 @@ const NavBar: React.FC<NavBarProps> = ({
         )}
       >
         <div className="container px-4 mx-auto">
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-              <Search size={18} />
+          <form onSubmit={handleSearch}>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <Search size={18} />
+              </div>
+              <Input 
+                placeholder="Search..." 
+                className="pl-10 pr-4 w-full rounded-full bg-gray-100 border-0"
+                autoFocus={isSearchOpen}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
             </div>
-            <Input 
-              placeholder="Search..." 
-              className="pl-10 pr-4 w-full rounded-full bg-gray-100 border-0"
-              autoFocus={isSearchOpen}
-            />
-          </div>
+          </form>
         </div>
       </div>
     </header>

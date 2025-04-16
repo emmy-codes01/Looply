@@ -1,138 +1,214 @@
 
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NavBar from "@/components/NavBar";
 import SidebarMenu from "@/components/SidebarMenu";
 import BottomNav from "@/components/BottomNav";
 import FloatingActionButton from "@/components/FloatingActionButton";
 import Post from "@/components/Post";
-import AuthenticationSheet from "@/components/AuthenticationSheet";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import NetworkDetector from "@/components/NetworkDetector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-// Sample data for posts
-const SAMPLE_POSTS = [
-  {
-    id: "1",
-    username: "Jane Doe",
-    avatar: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-    content: "Just launched my new website! It's been a long journey but I'm so proud of what we've built. Check it out and let me know what you think! 🚀",
-    images: [
-      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-      "https://images.unsplash.com/photo-1721322800607-8c38375eef04?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100"
-    ],
-    createdAt: "2h ago",
-    likesCount: 24,
-    commentsCount: 5,
-    isLiked: false,
-    isBookmarked: false,
-  },
-  {
-    id: "2",
-    username: "John Smith",
-    avatar: "",
-    content: "Working from the beach today. Sometimes a change of scenery is all you need to boost productivity! #remotework #digitalnomad",
-    images: [
-      "https://images.unsplash.com/photo-1623123795893-18b96629c472?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-    ],
-    createdAt: "5h ago",
-    likesCount: 42,
-    commentsCount: 8,
-    isLiked: true,
-    isBookmarked: false,
-  },
-  {
-    id: "3",
-    username: "Sarah Parker",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-    content: "Just finished reading this amazing book on AI ethics. It really makes you think about the future of technology and our responsibility as developers. Highly recommend! 📚",
-    createdAt: "1d ago",
-    likesCount: 18,
-    commentsCount: 3,
-    isLiked: false,
-    isBookmarked: true,
-  },
-  {
-    id: "4",
-    username: "Alex Johnson",
-    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-    content: "Just got back from an amazing hike in the mountains. The views were absolutely breathtaking! Nature is the best stress reliever. 🏔️",
-    images: [
-      "https://images.unsplash.com/photo-1527856263669-12c3a0af2aa6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-      "https://images.unsplash.com/photo-1461301214746-1e109215d6d3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-    ],
-    createdAt: "2d ago",
-    likesCount: 76,
-    commentsCount: 12,
-    isLiked: false,
-    isBookmarked: false,
-  },
-];
+import { useAuth } from "@/hooks/use-auth";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Plus, Users } from "lucide-react";
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAuthSheetOpen, setIsAuthSheetOpen] = useState(false);
   const [isCreatePostSheetOpen, setIsCreatePostSheetOpen] = useState(false);
-  const [posts, setPosts] = useState(SAMPLE_POSTS);
-  const [loading, setLoading] = useState(true);
+  const [postsSubscription, setPostsSubscription] = useState<any>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+  // Fetch posts
+  const fetchPosts = async ({ queryKey }: any) => {
+    const [_, tab] = queryKey;
     
-    return () => clearTimeout(timer);
-  }, []);
-  
-  const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
-    setIsAuthSheetOpen(false);
-    toast({
-      title: "Welcome back!",
-      description: "You are now logged in to Corner Chat.",
-    });
+    // Determine which posts to fetch based on the tab
+    let query = supabase
+      .from('posts')
+      .select(`
+        *,
+        profile:profiles(*),
+        images:post_images(*)
+      `)
+      .order('created_at', { ascending: false });
+    
+    // If "following" tab and user is logged in, only show posts from followed users
+    if (tab === 'following' && user) {
+      // Get list of users the current user follows
+      const { data: followedUsers } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id);
+      
+      if (followedUsers && followedUsers.length > 0) {
+        const followedIds = followedUsers.map(item => item.following_id);
+        query = query.in('user_id', followedIds);
+      } else {
+        // No followed users, return empty array
+        return [];
+      }
+    }
+    
+    const { data, error } = await query.limit(20);
+    
+    if (error) throw error;
+    
+    // Get likes and comments count for each post
+    const postsWithCounts = await Promise.all(
+      data.map(async (post) => {
+        const { count: likesCount } = await supabase
+          .from('likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+        
+        const { count: commentsCount } = await supabase
+          .from('comments')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+        
+        let isLiked = false;
+        let isBookmarked = false;
+        
+        if (user) {
+          const { data: likeData } = await supabase
+            .from('likes')
+            .select('*')
+            .eq('post_id', post.id)
+            .eq('user_id', user.id)
+            .single();
+          
+          const { data: bookmarkData } = await supabase
+            .from('bookmarks')
+            .select('*')
+            .eq('post_id', post.id)
+            .eq('user_id', user.id)
+            .single();
+          
+          isLiked = !!likeData;
+          isBookmarked = !!bookmarkData;
+        }
+        
+        return { 
+          ...post, 
+          likes_count: likesCount || 0,
+          comments_count: commentsCount || 0,
+          is_liked: isLiked,
+          is_bookmarked: isBookmarked
+        };
+      })
+    );
+    
+    return postsWithCounts;
   };
+  
+  // Fetch trending posts or topics
+  const fetchTrending = async () => {
+    // In a real app, this would fetch trending posts based on engagement metrics
+    // For now, just return a list of trending topics
+    return [
+      { id: 1, tag: "#ReactJS", postsCount: 1234 },
+      { id: 2, tag: "#WebDevelopment", postsCount: 982 },
+      { id: 3, tag: "#TailwindCSS", postsCount: 765 },
+      { id: 4, tag: "#JavaScript", postsCount: 543 },
+      { id: 5, tag: "#TechNews", postsCount: 421 },
+    ];
+  };
+  
+  // Query for posts
+  const { 
+    data: forYouPosts, 
+    isLoading: isForYouLoading,
+    refetch: refetchForYou,
+  } = useQuery({
+    queryKey: ['posts', 'for-you'],
+    queryFn: fetchPosts,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+  
+  const { 
+    data: followingPosts, 
+    isLoading: isFollowingLoading,
+    refetch: refetchFollowing,
+  } = useQuery({
+    queryKey: ['posts', 'following'],
+    queryFn: fetchPosts,
+    enabled: !!user, // Only run if user is logged in
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+  
+  const { 
+    data: trendingTopics, 
+    isLoading: isTrendingLoading,
+  } = useQuery({
+    queryKey: ['trending'],
+    queryFn: fetchTrending,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+  
+  // Subscribe to new posts with Supabase realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts',
+        },
+        (payload) => {
+          // Invalidate queries to refresh the lists
+          queryClient.invalidateQueries({ queryKey: ['posts'] });
+        }
+      )
+      .subscribe();
+    
+    setPostsSubscription(channel);
+    
+    return () => {
+      if (postsSubscription) {
+        supabase.removeChannel(postsSubscription);
+      }
+    };
+  }, [queryClient]);
   
   const handleCreatePostSuccess = () => {
     setIsCreatePostSheetOpen(false);
-    // Add new post at the top (would normally come from API)
-    const newPost = {
-      id: `${Date.now()}`,
-      username: "Jane Doe",
-      avatar: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=100",
-      content: "Just posted this from the new Corner Chat app! Loving the clean interface and smooth experience.",
-      createdAt: "Just now",
-      likesCount: 0,
-      commentsCount: 0,
-      isLiked: false,
-      isBookmarked: false,
-    };
-    
-    setPosts([newPost, ...posts]);
+    toast({
+      title: "Post created",
+      description: "Your post has been published successfully",
+    });
+    // Refetch posts
+    refetchForYou();
+    if (user) {
+      refetchFollowing();
+    }
   };
   
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar 
-        isAuthenticated={isAuthenticated} 
-        onAuthClick={() => setIsAuthSheetOpen(true)}
+        isAuthenticated={!!user} 
+        onAuthClick={() => navigate('/auth')}
         onMenuToggle={() => setIsMenuOpen(true)}
       />
       
       <SidebarMenu 
         isOpen={isMenuOpen}
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={!!user}
         onClose={() => setIsMenuOpen(false)}
         onAuthClick={() => {
           setIsMenuOpen(false);
-          setIsAuthSheetOpen(true);
+          navigate('/auth');
         }}
       />
 
@@ -162,7 +238,7 @@ const Index = () => {
           </div>
 
           <TabsContent value="for-you" className="mt-0">
-            {loading ? (
+            {isForYouLoading ? (
               <div className="space-y-6 p-4">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="animate-pulse">
@@ -187,71 +263,131 @@ const Index = () => {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : forYouPosts && forYouPosts.length > 0 ? (
               <div>
-                {posts.map((post) => (
-                  <Post key={post.id} {...post} />
+                {forYouPosts.map((post) => (
+                  <Post 
+                    key={post.id} 
+                    {...post} 
+                    onPostUpdate={refetchForYou}
+                  />
                 ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
+                <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
+                <p className="text-gray-500 mb-4">
+                  {user 
+                    ? "Create your first post to get started!"
+                    : "Sign in to create posts and join the conversation."}
+                </p>
+                {user ? (
+                  <Button 
+                    className="rounded-full"
+                    onClick={() => setIsCreatePostSheetOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create post
+                  </Button>
+                ) : (
+                  <Button
+                    className="rounded-full"
+                    onClick={() => navigate('/auth')}
+                  >
+                    Sign in
+                  </Button>
+                )}
               </div>
             )}
           </TabsContent>
           
           <TabsContent value="following" className="mt-0">
-            <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
-              <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
-              <p className="text-gray-500 mb-4">
-                {isAuthenticated
-                  ? "When you follow people, their posts will appear here."
-                  : "Sign in to see posts from people you follow."}
-              </p>
-              {!isAuthenticated && (
-                <button
+            {!user ? (
+              <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
+                <h3 className="text-xl font-semibold mb-2">Sign in to see posts</h3>
+                <p className="text-gray-500 mb-4">
+                  Follow people to see their posts here.
+                </p>
+                <Button
                   className="px-6 py-2 bg-primary text-white rounded-full font-medium hover:bg-primary-600 transition-colors"
-                  onClick={() => setIsAuthSheetOpen(true)}
+                  onClick={() => navigate('/auth')}
                 >
                   Sign In
-                </button>
-              )}
-            </div>
+                </Button>
+              </div>
+            ) : isFollowingLoading ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-500">Loading posts...</p>
+              </div>
+            ) : followingPosts && followingPosts.length > 0 ? (
+              <div>
+                {followingPosts.map((post) => (
+                  <Post 
+                    key={post.id} 
+                    {...post} 
+                    onPostUpdate={refetchFollowing}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 p-4 text-center">
+                <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
+                <p className="text-gray-500 mb-4">
+                  When you follow people, their posts will appear here.
+                </p>
+                <Link to="/search">
+                  <Button className="rounded-full">
+                    <Users className="h-4 w-4 mr-2" />
+                    Find people to follow
+                  </Button>
+                </Link>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="trending" className="mt-0">
             <div className="p-4">
               <h3 className="text-xl font-semibold mb-4">Trending Topics</h3>
-              <div className="space-y-4">
-                {["#ReactJS", "#WebDevelopment", "#TailwindCSS", "#JavaScript", "#TechNews"].map((tag) => (
-                  <div key={tag} className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-semibold text-primary">{tag}</p>
-                        <p className="text-sm text-gray-500">1,234 posts</p>
-                      </div>
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                        Trending
-                      </span>
+              {isTrendingLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="p-4 bg-gray-50 rounded-xl animate-pulse">
+                      <div className="h-5 w-1/3 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 w-1/4 bg-gray-200 rounded"></div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {trendingTopics?.map((topic) => (
+                    <div key={topic.id} className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                      <div className="flex justify-between">
+                        <div>
+                          <p className="font-semibold text-primary">{topic.tag}</p>
+                          <p className="text-sm text-gray-500">{topic.postsCount} posts</p>
+                        </div>
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                          Trending
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
       </main>
 
-      {isAuthenticated && !isMobile && (
+      {user && !isMobile && (
         <FloatingActionButton onClick={() => setIsCreatePostSheetOpen(true)} />
       )}
       
       <BottomNav 
-        isAuthenticated={isAuthenticated} 
+        isAuthenticated={!!user} 
         onCreatePost={() => setIsCreatePostSheetOpen(true)}
-        onAuthClick={() => setIsAuthSheetOpen(true)}
-      />
-      
-      <AuthenticationSheet 
-        isOpen={isAuthSheetOpen}
-        onClose={() => setIsAuthSheetOpen(false)}
-        onSuccess={handleAuthSuccess}
+        onAuthClick={() => navigate('/auth')}
       />
       
       <CreatePostSheet 
